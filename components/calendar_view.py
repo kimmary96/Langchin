@@ -4,6 +4,7 @@ from datetime import datetime, date
 from data_manager import (
     get_diary_entry,
     save_diary_entry,
+    delete_diary_entry,
     get_dates_with_records,
 )
 
@@ -270,8 +271,14 @@ def show_calendar_dialog():
 
         if has_existing and not st.session_state.get("diary_editing"):
             _render_diary_view(sel_date)
-            if st.button("✏️ 수정하기", key="edit_diary"):
-                st.session_state.diary_editing = True
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✏️ 수정하기", key="edit_diary", use_container_width=True):
+                    st.session_state.diary_editing = True
+                    st.rerun()
+            with col2:
+                if st.button("🗑️ 삭제하기", key="delete_diary", use_container_width=True):
+                    delete_diary_entry(sel_date)
+                    st.rerun()
         else:
             _render_diary_form(sel_date)

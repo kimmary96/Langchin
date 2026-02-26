@@ -54,6 +54,12 @@ def save_diary_entry(date_str, entry):
     save_health_diary(diary)
 
 
+def delete_diary_entry(date_str):
+    diary = load_health_diary()
+    diary.pop(date_str, None)
+    save_health_diary(diary)
+
+
 def save_chat_history(date_str, messages):
     _ensure_data_dir()
     path = os.path.join(DATA_DIR, f"chat_{date_str}.json")

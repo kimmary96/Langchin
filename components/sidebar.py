@@ -9,28 +9,21 @@ def render_sidebar():
     with st.sidebar:
         st.header("🏥 내 병력 관리")
 
+        # 삭제 버튼 축소 CSS
+        st.markdown("""
+        <style>
+            [data-testid="stSidebar"] button[kind="secondary"] {
+                padding: 0.15rem 0.1rem;
+                min-height: 0;
+                font-size: 0.8rem;
+                line-height: 1;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
         medical_history = load_medical_history()
 
-        if medical_history:
-            st.subheader("등록된 병력")
-            for i, item in enumerate(medical_history):
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    text = f"**{item.get('disease', '')}**"
-                    if item.get('date'):
-                        text += f" ({item['date']})"
-                    if item.get('memo'):
-                        text += f"\n{item['memo']}"
-                    st.markdown(text)
-                with col2:
-                    if st.button("🗑️", key=f"del_{i}"):
-                        medical_history.pop(i)
-                        save_medical_history(medical_history)
-                        st.rerun()
-                st.divider()
-        else:
-            st.info("등록된 병력이 없어요.")
-
+        # 1) 병력 추가 폼 (상단)
         st.subheader("병력 추가")
         with st.form("add_medical_history", clear_on_submit=True):
             disease = st.text_input("질병/수술명")
@@ -49,6 +42,27 @@ def render_sidebar():
                 save_medical_history(medical_history)
                 st.success(f"'{disease}' 병력이 추가되었어요!")
                 st.rerun()
+
+        # 2) 등록된 병력 목록 (하단)
+        if medical_history:
+            st.markdown("**등록된 병력**")
+            for i, item in enumerate(medical_history):
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    text = f"**{item.get('disease', '')}**"
+                    if item.get('date'):
+                        text += f" ({item['date']})"
+                    if item.get('memo'):
+                        text += f"\n{item['memo']}"
+                    st.markdown(text)
+                with col2:
+                    if st.button("🗑️", key=f"del_{i}", use_container_width=False):
+                        medical_history.pop(i)
+                        save_medical_history(medical_history)
+                        st.rerun()
+                st.divider()
+        else:
+            st.info("등록된 병력이 없어요.")
 
         st.divider()
         render_alarm_ui()

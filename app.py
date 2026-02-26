@@ -14,7 +14,7 @@ from components.calendar_view import show_calendar_dialog
 # 페이지 설정
 st.set_page_config(
     page_title="어디가 아프니?",
-    page_icon="🩺",
+    page_icon="",
     layout="centered",
 )
 
@@ -146,11 +146,11 @@ st.markdown("""
 def get_greeting():
     hour = datetime.now().hour
     if 5 <= hour < 12:
-        return "좋은 아침이야! ☀️ 오늘은 어디 불편한 데 없어?"
+        return "좋은 아침이야! \n오늘은 어디 불편한 데 없어?"
     elif 12 <= hour < 18:
-        return "점심은 잘 먹었어? 🍚 오늘 몸 상태는 어때?"
+        return "점심은 잘 먹었어? \n오늘 몸 상태는 어때?"
     else:
-        return "오늘 하루도 수고했어~ 🌙 어디 아픈 데는 없지?"
+        return "오늘 하루도 수고했어~ \n어디 아픈 데는 없지?"
 
 
 def init_session():
@@ -181,7 +181,7 @@ def render_chat_message(role, content):
     if role == "assistant":
         st.markdown(
             f'<div class="chat-container-left">'
-            f'<div><div class="mom-label">🤱 케어봇</div>'
+            f'<div><div class="mom-label">🤱 엄마품</div>'
             f'<div class="mom-bubble">{content}</div></div></div>',
             unsafe_allow_html=True,
         )
@@ -233,6 +233,7 @@ def main():
             show_photo_dialog()
 
     if st.session_state.get("show_calendar_dialog"):
+        st.session_state.show_calendar_dialog = False
         show_calendar_dialog()
 
     # ── 사이드바 (내 정보 + 알림) ──
@@ -240,8 +241,8 @@ def main():
 
     # ── 타이틀: 메시지가 없을 때만 표시 ──
     if not st.session_state.messages:
-        st.markdown('<div class="welcome-title">🩺 어디가 아프니?</div>', unsafe_allow_html=True)
-        st.markdown('<div class="welcome-subtitle">건강을 챙겨주는 케어봇 💚</div>', unsafe_allow_html=True)
+        st.markdown('<div class="welcome-title">어디가 아프니?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="welcome-subtitle">엄마 품으로 오렴 💚</div>', unsafe_allow_html=True)
 
     # ── 첫 인사 ──
     if not st.session_state.greeted and not st.session_state.messages:
@@ -264,8 +265,9 @@ def main():
     # ── 채팅 입력 ──
     if user_input := st.chat_input("어디가 아프니? 말해봐~"):
         st.session_state.messages.append({"role": "user", "content": user_input})
+        render_chat_message("user", user_input)
 
-        with st.spinner("케어봇이 생각 중이야..."):
+        with st.spinner("타자치는 중..."):
             response = st.session_state.chatbot.get_response(
                 user_input, st.session_state.messages[:-1]
             )
