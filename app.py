@@ -155,7 +155,11 @@ def get_greeting():
 
 def init_session():
     if "messages" not in st.session_state:
-        st.session_state.messages = []
+        today = date.today().isoformat()
+        history = get_chat_history(today)
+        st.session_state.messages = history if history else []
+        st.session_state.current_date = today
+        st.session_state.greeted = bool(history)
     if "chatbot" not in st.session_state:
         st.session_state.chatbot = MomChatbot()
     if "current_date" not in st.session_state:

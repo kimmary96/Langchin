@@ -82,6 +82,15 @@ def get_chat_history(date_str):
         return json.load(f)
 
 
+def reset_all_data():
+    """데모용: 병력 + 건강일기 + 모든 채팅 기록 초기화"""
+    save_medical_history([])
+    save_health_diary({})
+    for filename in os.listdir(DATA_DIR):
+        if filename.startswith("chat_") and filename.endswith(".json"):
+            os.remove(os.path.join(DATA_DIR, filename))
+
+
 def get_dates_with_records():
     _ensure_data_dir()
     diary = load_health_diary()

@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from data_manager import load_medical_history, save_medical_history
+from data_manager import load_medical_history, save_medical_history, reset_all_data
 from components.alarm_ui import render_alarm_ui
 
 
@@ -66,3 +66,23 @@ def render_sidebar():
 
         st.divider()
         render_alarm_ui()
+
+        st.divider()
+        st.subheader("⚠️ 데모 초기화")
+        if st.button("🗑️ 전체 초기화", use_container_width=True):
+            st.session_state.confirm_reset = True
+
+        if st.session_state.get("confirm_reset"):
+            st.warning("병력, 건강일기, 대화 기록이 모두 삭제됩니다. 계속할까요?")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ 확인", type="primary", use_container_width=True):
+                    reset_all_data()
+                    st.session_state.messages = []
+                    st.session_state.greeted = False
+                    st.session_state.confirm_reset = False
+                    st.rerun()
+            with col2:
+                if st.button("❌ 취소", use_container_width=True):
+                    st.session_state.confirm_reset = False
+                    st.rerun()
