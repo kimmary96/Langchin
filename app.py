@@ -183,12 +183,14 @@ def check_date_change():
 
 def render_chat_message(role, content):
     if role == "assistant":
-        st.markdown(
-            f'<div class="chat-container-left">'
-            f'<div><div class="mom-label">🤱 엄마품</div>'
-            f'<div class="mom-bubble">{content}</div></div></div>',
-            unsafe_allow_html=True,
-        )
+        split_messages = [msg.strip() for msg in content.split("|||") if msg.strip()]
+        for clean_msg in split_messages:
+            st.markdown(
+                f'<div class="chat-container-left">'
+                f'<div><div class="mom-label">🤱 엄마품</div>'
+                f'<div class="mom-bubble">{clean_msg}</div></div></div>',
+                unsafe_allow_html=True,
+            )
     else:
         st.markdown(
             f'<div class="chat-container-right">'
