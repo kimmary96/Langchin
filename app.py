@@ -1,9 +1,17 @@
 
+import os
 import streamlit as st
 from datetime import datetime, date
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Streamlit Cloud: st.secrets에서 API 키 로드 (.env 없을 때 fallback)
+try:
+    if not os.environ.get("OPENAI_API_KEY") and "OPENAI_API_KEY" in st.secrets:
+        os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass
 
 from chatbot import MomChatbot
 from vision import analyze_medicine_image
