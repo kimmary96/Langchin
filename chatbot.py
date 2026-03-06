@@ -66,17 +66,157 @@ def convert_links_to_html(text):
 
 
 class MomChatbot:
-    def __init__(self):
+    def __init__(self, use_agent: bool = True):
+        self.use_agent = use_agent
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.7,
         )
 
-    def get_response(self, user_input, chat_history):
-        medical_history = load_medical_history()
-        system_prompt = get_system_prompt(medical_history)
+    # ── 데이터 변환 헬퍼 ────────────────────────────────────────────────────
 
+    @staticmethod
+    def _build_medical_history_str(medical_history_list: list) -> str:
+        """병력 리스트 → agent에 전달할 문자열로 변환."""
+        if not medical_history_list:
+            return ""
+        diseases = [item.get("disease", "") for item in medical_history_list if item.get("disease")]
+        memos = [item.get("memo", "") for item in medical_history_list if item.get("memo")]
+        text = f"진단: {', '.join(diseases) if diseases else '없음'} / 복용약: 없음 / 알레르기: 없음"
+        if memos:
+            text += f" / 메모: {'; '.join(memos)}"
+        return text
+
+    @staticmethod
+    def _build_diary_str(diary_entry: dict) -> str:
+        """건강일기 딕셔너리 → agent에 전달할 문자열로 변환."""
+        if not diary_entry:
+            return ""
+        parts = []
+        if diary_entry.get("condition"):
+            parts.append(f"컨디션: {diary_entry['condition']}")
+        symptoms = diary_entry.get("symptoms", [])
+        if symptoms:
+            parts.append(f"증상: {', '.join(symptoms)}")
+        if diary_entry.get("bowel"):
+            parts.append(f"배변: {diary_entry['bowel']}")
+        if diary_entry.get("sleep_hours") is not None:
+            parts.append(f"수면: {diary_entry['sleep_hours']}시간")
+        exercise = diary_entry.get("exercise", [])
+        if exercise:
+            parts.append(f"운동: {', '.join(exercise)}")
+        hospital = diary_entry.get("hospital", [])
+        if hospital:
+            parts.append(f"병원: {', '.join(hospital)}")
+        if diary_entry.get("memo"):
+            parts.append(f"메모: {diary_entry['memo']}")
+        return " / ".join(parts)
+
+    # ── 후처리 (기존 HTML 변환 + 병원 버튼 로직 그대로) ─────────────────────
+
+    @staticmethod
+    def _postprocess(text: str, hospital_requested: bool, department: str) -> str:
+        result = re.sub(
+            r'\[([^\]]+)\]\((https?://[^\)]+)\)',
+            r'<a href="\2" target="_blank" style="color:#8BC34A;font-weight:bold;text-decoration:underline;">\1</a>',
+            text
+        )
+
+        # --- 수정된 부분: 파이썬 코드가 무조건 안전하게 버튼을 추가 ---
+        # 병원 직접 요청 + 진료과 파악됨 → 무조건 네이버 지도 버튼 삽입
+        if hospital_requested and department:
+            url = f"https://map.naver.com/v5/search/{urllib.parse.quote('내 주변 ' + department)}"
+            link_html = f'<div style="margin-top:10px;"><a href="{url}" target="_blank" style="display:inline-block;padding:8px 16px;background:#8BC34A;color:white;border-radius:8px;text-decoration:none;font-size:14px;font-weight:bold;">🏥 근처 {department} 찾기</a></div>'
+            result += link_html
+
+        return result
+
+    # ── 공개 메서드 ──────────────────────────────────────────────────────────
+
+    def get_response(self, user_input: str, chat_history: list) -> dict:
+        """
+        Returns:
+            {"response": str, "agent_steps": list}
+        """
+        medical_history_list = load_medical_history()
         diary_entry = get_diary_entry(date.today().isoformat())
+
+        hospital_requested = is_hospital_request(user_input)
+        department = find_department(user_input)
+        if not department and hospital_requested:
+            department = find_department_from_history(chat_history)
+
+        if self.use_agent:
+            return self._response_via_agent(
+                user_input, medical_history_list, diary_entry,
+                hospital_requested, department,
+                chat_history,
+            )
+        return self._response_via_legacy(
+            user_input, chat_history, medical_history_list, diary_entry,
+            hospital_requested, department,
+        )
+
+    # ── agent 경로 ───────────────────────────────────────────────────────────
+
+    def _response_via_agent(
+        self,
+        user_input: str,
+        medical_history_list: list,
+        diary_entry: dict,
+        hospital_requested: bool,
+        department: str,
+        chat_history: list,
+    ) -> dict:
+        from agent.runner import run_agent
+
+        medical_history_str = self._build_medical_history_str(medical_history_list)
+        today_diary_str = self._build_diary_str(diary_entry)
+
+        # 병원 요청 컨텍스트를 user_message에 첨부
+        message_with_context = user_input
+        if hospital_requested and department:
+            message_with_context += (
+                "\n\n[시스템 참고: 사용자가 병원을 찾고 있습니다. "
+                "지도 버튼은 시스템이 자동으로 추가하니, 다정하게 병원 방문만 권유하세요.]"
+            )
+        elif hospital_requested and not department:
+            message_with_context += (
+                "\n\n[시스템 참고: 사용자가 병원을 찾고 있지만 증상이 파악되지 않았습니다. "
+                "어디가 불편한지 다정하게 물어보세요.]"
+            )
+
+        try:
+            agent_result = run_agent(
+                user_message=message_with_context,
+                medical_history=medical_history_str,
+                today_diary=today_diary_str,
+            )
+            raw_response = agent_result.get("response", "")
+            agent_steps = agent_result.get("agent_steps", [])
+        except Exception as e:
+            print(f"[MomChatbot] agent 실행 실패, legacy로 폴백: {e}")
+            return self._response_via_legacy(
+                user_input, chat_history, medical_history_list, diary_entry,
+                hospital_requested, department,
+            )
+
+        result = self._postprocess(raw_response, hospital_requested, department)
+        return {"response": result, "agent_steps": agent_steps}
+
+    # ── legacy 경로 (기존 LangChain 방식, 폴백용) ────────────────────────────
+
+    def _response_via_legacy(
+        self,
+        user_input: str,
+        chat_history: list,
+        medical_history_list: list,
+        diary_entry: dict,
+        hospital_requested: bool,
+        department: str,
+    ) -> dict:
+        system_prompt = get_system_prompt(medical_history_list)
+
         if diary_entry:
             diary_context = "\n\n[오늘의 건강일기 기록]\n"
             if diary_entry.get("condition"):
@@ -98,35 +238,6 @@ class MomChatbot:
                 diary_context += f"- 메모: {diary_entry['memo']}\n"
             system_prompt += diary_context
 
-        hospital_requested = is_hospital_request(user_input)
-
-        # 현재 메시지에서 진료과 탐색, 없으면 대화 이력에서 탐색
-        department = find_department(user_input)
-        if not department and hospital_requested:
-            department = find_department_from_history(chat_history)
-
-        # extra_context = ""
-        # if department:
-        #     map_link = get_naver_map_link(f"내 주변 {department}")
-        #     if hospital_requested:
-        #         extra_context = (
-        #             f"\n\n[시스템 지시: 사용자가 병원을 직접 요청했습니다. "
-        #             f"즉시 '{department}' 진료과를 안내하고, "
-        #             f"아래 네이버 지도 링크를 반드시 포함해주세요. "
-        #             f"'지켜보자', '아직 이르다' 같은 말은 절대 하지 마세요.\n"
-        #             f"링크: {map_link}]"
-        #         )
-        #     else:
-        #         extra_context = (
-        #             f"\n\n[시스템 참고: 사용자의 증상과 관련된 진료과는 '{department}'입니다. "
-        #             f"병원 방문을 권유할 때 이 네이버 지도 링크를 자연스럽게 포함해주세요: {map_link}]"
-        #         )
-        # elif hospital_requested:
-        #     extra_context = (
-        #         "\n\n[시스템 지시: 사용자가 병원을 직접 요청했지만 아직 증상이 파악되지 않았습니다. "
-        #         "'어디가 불편한지' 한 마디만 물어보세요. '지켜보자' 같은 말은 하지 마세요.]"
-        #     )
-
         extra_context = ""
         if hospital_requested and department:
             extra_context = (
@@ -146,39 +257,20 @@ class MomChatbot:
             )
 
         messages = [SystemMessage(content=system_prompt + extra_context)]
-
         for msg in chat_history:
             if msg["role"] == "user":
                 messages.append(HumanMessage(content=msg["content"]))
             elif msg["role"] == "assistant":
                 messages.append(AIMessage(content=msg["content"]))
-
         messages.append(HumanMessage(content=user_input))
 
         try:
-            response = self.llm.invoke(messages)
-            result = response.content
-            # result = convert_links_to_html(result)
-            result = re.sub(
-                r'\[([^\]]+)\]\((https?://[^\)]+)\)',
-                r'<a href="\2" target="_blank" style="color:#8BC34A;font-weight:bold;text-decoration:underline;">\1</a>',
-                result
-            )
-
-            # 병원 직접 요청 + 진료과 파악됨 → 네이버 지도 링크 fallback
-            # if hospital_requested and department:
-            #     if "map.naver.com" not in result:
-            #         url = f"https://map.naver.com/v5/search/{urllib.parse.quote(department)}"
-            #         link_html = f'<a href="{url}" target="_blank" style="color:#03C75A;font-weight:bold;">🏥 근처 {department} 찾기</a>'
-            #         result += f"<br><br>{link_html}"
-
-            # --- 수정된 부분: 파이썬 코드가 무조건 안전하게 버튼을 추가 ---
-            # 병원 직접 요청 + 진료과 파악됨 → 무조건 네이버 지도 버튼 삽입
-            if hospital_requested and department:
-                url = f"https://map.naver.com/v5/search/{urllib.parse.quote('내 주변 ' + department)}"
-                link_html = f'<div style="margin-top:10px;"><a href="{url}" target="_blank" style="display:inline-block;padding:8px 16px;background:#8BC34A;color:white;border-radius:8px;text-decoration:none;font-size:14px;font-weight:bold;">🏥 근처 {department} 찾기</a></div>'
-                result += link_html
-
-            return result
+            raw_response = self.llm.invoke(messages).content
         except Exception:
-            return "아이고, 잠깐 문제가 생겼네. 다시 한번 말해줄래?"
+            return {
+                "response": "아이고, 잠깐 문제가 생겼네. 다시 한번 말해줄래?",
+                "agent_steps": [],
+            }
+
+        result = self._postprocess(raw_response, hospital_requested, department)
+        return {"response": result, "agent_steps": []}

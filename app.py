@@ -176,6 +176,8 @@ def init_session():
         st.session_state.greeted = False
     if "last_uploaded" not in st.session_state:
         st.session_state.last_uploaded = ""
+    if "agent_steps" not in st.session_state:
+        st.session_state.agent_steps = []
 
 
 def check_date_change():
@@ -282,10 +284,12 @@ def main():
         render_chat_message("user", user_input)
 
         with st.spinner("타자치는 중..."):
-            response = st.session_state.chatbot.get_response(
+            result = st.session_state.chatbot.get_response(
                 user_input, st.session_state.messages[:-1]
             )
 
+        response = result["response"]
+        st.session_state.agent_steps = result.get("agent_steps", [])
         st.session_state.messages.append({"role": "assistant", "content": response})
         save_chat_history(st.session_state.current_date, st.session_state.messages)
         st.rerun()

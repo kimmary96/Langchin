@@ -1,10 +1,14 @@
 import json
 import os
 import re
+import sys
 import yaml
 from langchain_core.messages import SystemMessage, HumanMessage
 from agent.llm import get_llm, get_search_tool
 from agent.state import AgentState
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from prompts import get_system_prompt
 
 _prompts = None
 
@@ -93,27 +97,24 @@ def execute_node(state: AgentState) -> dict:
             except Exception as e:
                 print(f"[execute_node] Tavily 검색 실패: {e}")
 
-    context_parts = [
-        f"사용자 메시지: {state['user_message']}",
-        f"병력: {state['medical_history'] or '없음'}",
-        f"오늘 일기: {state['today_diary'] or '없음'}",
-        f"전략: {state.get('plan', '')}",
-    ]
-    if search_results:
-        context_parts.append(f"참고 정보:\n{search_results}")
+    # SystemMessage: 페르소나 + 병력 + 일기
+    base_system = get_system_prompt([])
+    if state.get("medical_history"):
+        base_system += f"\n\n[사용자 병력]\n{state['medical_history']}"
+    if state.get("today_diary"):
+        base_system += f"\n\n[오늘의 건강일기]\n{state['today_diary']}"
 
-    # 재시도: 이전 답변 + 피드백 포함
-    if retry_count > 0:
-        prev_response = state.get("response", "")
-        feedback = state.get("refinement_feedback", "")
-        if prev_response:
-            context_parts.append(f"이전 답변: {prev_response}")
-        if feedback:
-            context_parts.append(f"개선 요청: {feedback}")
+    # HumanMessage: 사용자 메시지 + execute 작업 지시 템플릿
+    task_prompt = prompts["execute"].format(
+        plan=state.get("plan", ""),
+        search_results=search_results or "없음",
+        refinement_feedback=state.get("refinement_feedback", "") or "없음",
+    )
+    human_content = f"사용자 메시지: {state['user_message']}\n\n{task_prompt}"
 
     messages = [
-        SystemMessage(content=prompts["execute"]),
-        HumanMessage(content="\n".join(context_parts)),
+        SystemMessage(content=base_system),
+        HumanMessage(content=human_content),
     ]
     response = llm.invoke(messages).content
 
