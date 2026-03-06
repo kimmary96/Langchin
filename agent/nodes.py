@@ -80,6 +80,7 @@ def execute_node(state: AgentState) -> dict:
 
     # search_needed=True인데 아직 검색 결과가 없으면 여기서 검색 실행
     search_results = state.get("search_results", "")
+    search_executed = False
     if state.get("search_needed") and not search_results:
         query = state.get("search_query", state["user_message"])
         search_tool = get_search_tool()
@@ -94,6 +95,7 @@ def execute_node(state: AgentState) -> dict:
                 else:
                     search_results = str(raw)
                 print(f"[execute_node] Tavily 검색 완료: '{query}'")
+                search_executed = True
             except Exception as e:
                 print(f"[execute_node] Tavily 검색 실패: {e}")
 
@@ -119,6 +121,8 @@ def execute_node(state: AgentState) -> dict:
     response = llm.invoke(messages).content
 
     steps = list(state.get("agent_steps", []))
+    if search_executed:
+        steps.append("Tavily 검색 실행됨")
     if retry_count > 0:
         steps.append(f"재시도 {retry_count}회차: 답변 개선 중")
     else:

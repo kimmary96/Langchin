@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agent.graph import build_graph
 
 
-def save_graph_image(output_path="graph_visualization.png"):
+def save_graph_image(output_path="graph_visualization1.png"):
     graph = build_graph()
     try:
         img = graph.get_graph().draw_mermaid_png()

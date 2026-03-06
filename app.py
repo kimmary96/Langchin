@@ -1,5 +1,7 @@
 
 import os
+import time
+import random
 import streamlit as st
 from datetime import datetime, date
 from dotenv import load_dotenv
@@ -191,14 +193,20 @@ def check_date_change():
         st.session_state.greeted = False
 
 
-def render_chat_message(role, content):
+def render_chat_message(role, content, animate=False, searched=False):
     if role == "assistant":
         split_messages = [msg.strip() for msg in content.split("|||") if msg.strip()]
-        for clean_msg in split_messages:
+        for i, clean_msg in enumerate(split_messages):
+            if animate and i > 0:
+                time.sleep(random.uniform(1.0, 2.0))  # 1~2초 랜덤 딜레이
+            bubble_style = (
+                ' style="border: 2px solid #4CAF50; border-radius: 12px; padding: 12px; margin: 4px 0;"'
+                if searched else ""
+            )
             st.markdown(
                 f'<div class="chat-container-left">'
                 f'<div><div class="mom-label">🤱 엄마품</div>'
-                f'<div class="mom-bubble">{clean_msg}</div></div></div>',
+                f'<div class="mom-bubble"{bubble_style}>{clean_msg}</div></div></div>',
                 unsafe_allow_html=True,
             )
     else:
@@ -269,8 +277,17 @@ def main():
         st.session_state.greeted = True
 
     # ── 채팅 메시지 표시 ──
-    for msg in st.session_state.messages:
-        render_chat_message(msg["role"], msg["content"])
+    animate_last = st.session_state.get("animate_last", False)
+    searched_last = st.session_state.get("searched_last", False)
+    for i, msg in enumerate(st.session_state.messages):
+        is_last = (i == len(st.session_state.messages) - 1)
+        should_animate = animate_last and is_last and msg["role"] == "assistant"
+        should_searched = searched_last and is_last and msg["role"] == "assistant"
+        render_chat_message(msg["role"], msg["content"], animate=should_animate, searched=should_searched)
+    if animate_last:
+        st.session_state.animate_last = False
+    if searched_last:
+        st.session_state.searched_last = False
 
     # ── 하단 플로팅 버튼 ──
     st.markdown("""
@@ -289,9 +306,12 @@ def main():
             )
 
         response = result["response"]
-        st.session_state.agent_steps = result.get("agent_steps", [])
+        agent_steps = result.get("agent_steps", [])
+        st.session_state.agent_steps = agent_steps
         st.session_state.messages.append({"role": "assistant", "content": response})
         save_chat_history(st.session_state.current_date, st.session_state.messages)
+        st.session_state.animate_last = True
+        st.session_state.searched_last = any("Tavily 검색 실행됨" in s for s in agent_steps)
         st.rerun()
 
 
