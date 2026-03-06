@@ -159,7 +159,14 @@ class MomChatbot:
         # 병원 직접 요청 + 진료과 파악됨 → 무조건 네이버 지도 버튼 삽입
         if hospital_requested and department:
             url = f"https://map.naver.com/v5/search/{urllib.parse.quote('내 주변 ' + department)}"
-            link_html = f'<div style="margin-top:10px;"><a href="{url}" target="_blank" style="display:inline-block;padding:8px 16px;background:#8BC34A;color:white;border-radius:8px;text-decoration:none;font-size:14px;font-weight:bold;">🏥 근처 {department} 찾기</a></div>'
+            link_html = (
+                f'<div style="margin-top:10px;">'
+                f'<a href="{url}" target="_blank" class="hospital-btn" '
+                f'style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;'
+                f'background:#5C9E6E;color:white;border-radius:12px;text-decoration:none;'
+                f'font-size:14px;font-weight:500;box-shadow:0 2px 8px rgba(92,158,110,0.3);">'
+                f'🏥 근처 {department} 찾기</a></div>'
+            )
             result += link_html
 
         return result

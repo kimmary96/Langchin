@@ -129,8 +129,6 @@ def _render_diary_form(selected_date):
         }
         save_diary_entry(selected_date, entry)
         st.session_state.diary_editing = False
-        st.session_state.show_calendar_dialog = False
-        st.rerun()
 
 
 def _render_diary_view(selected_date):
@@ -139,8 +137,14 @@ def _render_diary_view(selected_date):
     if not existing:
         return False
 
-    st.divider()
-    st.markdown(f"### 📋 {selected_date} 건강일기")
+    st.markdown(f"""
+    <div style="background:#5C9E6E; border-radius:2px; padding:2px;
+                margin-top:6px; box-shadow:0 2px 12px rgba(0,0,0,0.06);
+                border:6px solid #3A7A50;">
+        <div style="font-family:'Noto Serif KR',serif; font-size:15px;
+                    font-weight:100; margin-bottom:6px;">    📋 {selected_date} 건강일기</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if existing.get("condition"):
         st.markdown(f"**컨디션:** {existing['condition']}")
@@ -173,7 +177,9 @@ def _render_diary_view(selected_date):
 @st.dialog("📅 건강 캘린더", width="large")
 def show_calendar_dialog():
     today = date.today()
-    col1, col2, col3 = st.columns(3)
+
+    # 년/월 선택 (2열)
+    col1, col2 = st.columns(2)
     with col1:
         selected_year = st.selectbox(
             "년도",
@@ -189,96 +195,109 @@ def show_calendar_dialog():
             key="cal_month",
         )
 
-    days_in_month = calendar.monthrange(selected_year, selected_month)[1]
+    # 선택된 날짜 초기화 (기본값: 오늘)
+    if "selected_diary_date" not in st.session_state:
+        st.session_state.selected_diary_date = today.isoformat()
+
     dates_with_records = get_dates_with_records()
-    day_options = list(range(1, days_in_month + 1))
-    day_labels = [
-        f"{d}일" + (" 📝" if f"{selected_year}-{selected_month:02d}-{d:02d}" in dates_with_records else "")
-        for d in day_options
-    ]
-    default_day = min(today.day, days_in_month) - 1
-    with col3:
-        selected_day_idx = st.selectbox(
-            "일",
-            range(len(day_options)),
-            index=default_day,
-            format_func=lambda i: day_labels[i],
-            key="cal_day",
-        )
-    selected_date_str = f"{selected_year}-{selected_month:02d}-{day_options[selected_day_idx]:02d}"
-    st.session_state.selected_diary_date = selected_date_str
     cal = calendar.monthcalendar(selected_year, selected_month)
     weekdays = ["월", "화", "수", "목", "금", "토", "일"]
-
-    # CSS grid 스타일
+    # 캘린더 버튼 CSS
     st.markdown("""
     <style>
-    .calendar-grid {
+    .cal-header-row {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 4px;
-        width: 100%;
+        gap: 1px;
+        margin-bottom: 1px;
     }
-    .calendar-day {
-        aspect-ratio: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-        font-size: 14px;
-        min-width: 0;
-        background: white;
-    }
-    .calendar-day-header {
-        font-weight: bold;
-        font-size: 13px;
+    .cal-header-cell {
         text-align: center;
-        border: none;
-        background: transparent;
-    }
-    .calendar-day-has-record {
-        background: #E8F5E9;
-        border-color: #4CAF50;
-    }
-    .calendar-day-empty {
-        border: none;
-        background: transparent;
+        font-size: 12px;
+        font-weight: 600;
+        color: #8A8A8A;
+        padding: 4px 0;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # HTML grid 렌더링
-    html = '<div class="calendar-grid">'
-    for day_name in weekdays:
-        html += f'<div class="calendar-day calendar-day-header">{day_name}</div>'
+    # 요일 헤더
+    st.markdown(
+        '<div class="cal-header-row">' +
+        ''.join(f'<div class="cal-header-cell">{d}</div>' for d in weekdays) +
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # [순서 1] 버튼 렌더링 (스타일 없이)
+    for week in cal:
+        cols = st.columns(7)
+        for j, day in enumerate(week):
+            with cols[j]:
+                if day == 0:
+                    st.markdown(
+                        "<div style='height:36px'></div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    date_str = f"{selected_year}-{selected_month:02d}-{day:02d}"
+                    if st.button(
+                        str(day),
+                        key=f"cal_{selected_year}_{selected_month}_{day}",
+                        use_container_width=True,
+                        help=str(day),
+                    ):
+                        st.session_state.selected_diary_date = date_str
+                        st.session_state.diary_editing = False
+
+    # [순서 2] 버튼 루프 후 최신 selected_diary_date 기준으로 재계산
+    selected_date_str = st.session_state.selected_diary_date
+    date_style_map = {}
     for week in cal:
         for day in week:
             if day == 0:
-                html += '<div class="calendar-day calendar-day-empty"></div>'
-            else:
-                date_str = f"{selected_year}-{selected_month:02d}-{day:02d}"
-                has_record = date_str in dates_with_records
-                cls = "calendar-day calendar-day-has-record" if has_record else "calendar-day"
-                html += f'<div class="{cls}">{day}</div>'
-    html += '</div>'
-    st.markdown(html, unsafe_allow_html=True)
+                continue
+            date_str = f"{selected_year}-{selected_month:02d}-{day:02d}"
+            has_record = date_str in dates_with_records
+            is_today = date_str == today.isoformat()
+            is_selected = date_str == selected_date_str
+            if is_selected and has_record:
+                date_style_map[day] = "selected-record"
+            elif is_selected:
+                date_style_map[day] = "selected"
+            elif has_record:
+                date_style_map[day] = "has-record"
+            elif is_today:
+                date_style_map[day] = "today"
+
+    # [순서 3] date_style_map 기준 CSS 생성 및 주입
+    css_rules = ""
+    for day, style_type in date_style_map.items():
+        sel = f'div:has(button[title="{day}"]) button, div:has(button[aria-label="{day}"]) button'
+        if style_type == "has-record":
+            css_rules += f"{sel} {{ background-color:#5C9E6E!important; color:white!important; border-color:#5C9E6E!important; }}\n"
+        elif style_type == "today":
+            css_rules += f"{sel} {{ color:#5C9E6E!important; font-weight:700!important; outline:2px solid #5C9E6E!important; outline-offset:-2px!important; }}\n"
+        elif style_type == "selected":
+            css_rules += f"{sel} {{ background:white!important; color:#5C9E6E!important; outline:2px solid #5C9E6E!important; outline-offset:-2px!important; font-weight:700!important; }}\n"
+        elif style_type == "selected-record":
+            css_rules += f"{sel} {{ background:#3A7A50!important; color:white!important; border-color:#3A7A50!important; font-weight:700!important; }}\n"
+    if css_rules:
+        st.markdown(f"<style>{css_rules}</style>", unsafe_allow_html=True)
 
     # 선택된 날짜의 건강일기
-    if "selected_diary_date" in st.session_state:
-        sel_date = st.session_state.selected_diary_date
-        has_existing = get_diary_entry(sel_date) is not None
+    sel_date = st.session_state.selected_diary_date
+    has_existing = get_diary_entry(sel_date) is not None
 
-        if has_existing and not st.session_state.get("diary_editing"):
-            _render_diary_view(sel_date)
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✏️ 수정하기", key="edit_diary", use_container_width=True):
-                    st.session_state.diary_editing = True
-                    st.rerun()
-            with col2:
-                if st.button("🗑️ 삭제하기", key="delete_diary", use_container_width=True):
-                    delete_diary_entry(sel_date)
-                    st.rerun()
-        else:
-            _render_diary_form(sel_date)
+    if has_existing and not st.session_state.get("diary_editing"):
+        _render_diary_view(sel_date)
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✏️ 수정하기", key="edit_diary", use_container_width=True):
+                st.session_state.diary_editing = True
+        with col2:
+            if st.button("🗑️ 삭제하기", key="delete_diary", use_container_width=True):
+                delete_diary_entry(sel_date)
+                st.rerun()
+    else:
+        _render_diary_form(sel_date)

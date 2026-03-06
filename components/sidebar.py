@@ -10,14 +10,62 @@ def render_sidebar():
     with st.sidebar:
         st.header("🏥 내 병력 관리")
 
-        # 삭제 버튼 축소 CSS
+        # 사이드바 전용 CSS
         st.markdown("""
         <style>
-            [data-testid="stSidebar"] button[kind="secondary"] {
-                padding: 0.15rem 0.1rem;
-                min-height: 0;
-                font-size: 0.8rem;
-                line-height: 1;
+            /* === 폼 요소 높이 1/2 축소 (병력추가, 약복용알림) === */
+            [data-testid="stSidebar"] [data-testid="stForm"] input {
+                padding-top: 3px !important;
+                padding-bottom: 3px !important;
+                height: 32px !important;
+                font-size: 13px !important;
+            }
+            [data-testid="stSidebar"] [data-testid="stForm"] textarea {
+                padding-top: 4px !important;
+                padding-bottom: 4px !important;
+                min-height: 40px !important;
+                font-size: 13px !important;
+                line-height: 1.4 !important;
+            }
+            [data-testid="stSidebar"] [data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
+                padding: 0.2rem 0.5rem !important;
+                height: 32px !important;
+                min-height: 0 !important;
+                font-size: 0.8rem !important;
+                line-height: 1.2 !important;
+            }
+            /* === 삭제 버튼 소형 유지 (컬럼 내 비전체너비) === */
+            [data-testid="stSidebar"] [data-testid="column"]:last-child .stButton > button:not([style*="width: 100%"]) {
+                padding: 0.1rem 0.15rem !important;
+                min-height: 0 !important;
+                height: 28px !important;
+                font-size: 0.8rem !important;
+                line-height: 1 !important;
+            }
+            /* === 대형 액션 버튼 2배 높이 (리포트 만들기, 전체 초기화 등) === */
+            [data-testid="stSidebar"] .stButton > button[style*="width: 100%"] {
+                min-height: 3.5rem !important;
+                padding: 0.8rem 0.5rem !important;
+                font-size: 0.9rem !important;
+            }
+            .sidebar-section-title {
+                font-family: 'Noto Serif KR', serif;
+                font-size: 15px;
+                font-weight: 600;
+                color: #2D2D2D;
+                margin: 20px 0 12px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #E8EDE8;
+            }
+            .medical-tag {
+                display: inline-block;
+                background: #EEF6EE;
+                border: 1px solid #E8EDE8;
+                border-radius: 20px;
+                padding: 5px 12px;
+                font-size: 13px;
+                color: #2D2D2D;
+                margin: 3px 2px;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -29,7 +77,7 @@ def render_sidebar():
         with st.form("add_medical_history", clear_on_submit=True):
             disease = st.text_input("질병/수술명")
             date = st.text_input("시기 (예: 2024-01)", value="")
-            memo = st.text_area("메모", value="")
+            memo = st.text_area("메모", value="", height=60)
             submitted = st.form_submit_button("추가하기")
 
             if submitted and disease:
@@ -85,10 +133,24 @@ def render_sidebar():
 
         if st.session_state.get("today_report"):
             r = st.session_state.today_report
-            st.markdown(f"**증상 요약:** {r.get('symptoms', '')}")
-            st.markdown(f"**컨디션 점수:** {'⭐' * r.get('condition_score', 3)} ({r.get('condition_score', 3)}/5)")
-            st.markdown(f"💬 {r.get('moms_comment', '')}")
-            st.markdown(f"**권고:** {r.get('recommendation', '')}")
+            score = r.get('condition_score', 3)
+            stars = '⭐' * score
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#EEF6EE 0%,#F7FBF7 100%);
+                        border-radius:16px; padding:18px; border:1px solid #E8EDE8; margin:8px 0;">
+                <div style="font-family:'Noto Serif KR',serif; font-size:15px;
+                            font-weight:600; margin-bottom:12px; color:#2D2D2D;">오늘의 건강 리포트</div>
+                <div style="font-size:13px; color:#8A8A8A; margin-bottom:4px;">컨디션</div>
+                <div style="font-size:16px; margin-bottom:10px;">{stars} <span style="font-size:13px;color:#8A8A8A;">({score}/5)</span></div>
+                <div style="font-size:13px; color:#8A8A8A; margin-bottom:2px;">증상 요약</div>
+                <div style="font-size:14px; margin-bottom:10px; color:#2D2D2D;">{r.get('symptoms', '')}</div>
+                <div style="font-size:14px; color:#5C9E6E; margin-bottom:8px;">💬 {r.get('moms_comment', '')}</div>
+                <div style="font-size:13px; background:white; border-radius:10px;
+                            padding:10px 12px; color:#2D2D2D; border:1px solid #E8EDE8;">
+                    {r.get('recommendation', '')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         st.divider()
         st.subheader("⚠️ 데모 초기화")

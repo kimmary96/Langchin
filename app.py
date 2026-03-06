@@ -52,23 +52,41 @@ st.set_page_config(
 # CSS 스타일
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #FFFFF0;
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500&family=Noto+Serif+KR:wght@600&display=swap');
+
+    /* ── CSS 변수 ── */
+    :root {
+        --color-bg: #FAFAF7;
+        --color-surface: #FFFFFF;
+        --color-mom-bubble: #EEF6EE;
+        --color-user-bubble: #FFF8E7;
+        --color-primary: #5C9E6E;
+        --color-primary-light: #8BC4A0;
+        --color-text: #2D2D2D;
+        --color-text-muted: #8A8A8A;
+        --color-border: #E8EDE8;
+        --color-danger: #E57373;
+    }
+
+    /* ── 전역 ── */
+    * { font-family: 'Noto Sans KR', sans-serif; box-sizing: border-box; }
+
+    body, .stApp {
+        background-color: var(--color-bg) !important;
     }
 
     header[data-testid="stHeader"] {
         background: transparent;
     }
 
-    /* 모바일 세로 해상도 고정 */
+    /* ── 레이아웃 ── */
     .main .block-container {
-        max-width: 390px !important;
-        min-width: 390px !important;
+        max-width: 480px !important;
         margin: 0 auto !important;
-        padding: 0 !important;
+        padding: 0 16px 120px !important;
     }
 
-    /* 채팅 영역 하단 여백 확보 */
+    /* ── 채팅 영역 ── */
     .stChatMessageContainer {
         padding-bottom: 160px !important;
     }
@@ -76,127 +94,163 @@ st.markdown("""
     /* ── 말풍선 공통 ── */
     .mom-bubble, .user-bubble {
         display: inline-block;
-        border-radius: 18px;
-        margin: 8px 0;
         font-size: 15px;
-        line-height: 1.5;
-        text-align: left;
+        line-height: 1.6;
+        color: var(--color-text);
         word-break: keep-all;
-        white-space: pre-wrap;
         overflow-wrap: break-word;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        text-align: left;
     }
     .mom-bubble {
-        background-color: #E8F5E9;
-        border-bottom-left-radius: 4px;
+        background: var(--color-mom-bubble);
+        border-radius: 4px 18px 18px 18px;
+        padding: 13px 16px;
+        max-width: 78%;
+        min-width: 60px;
+        margin: 2px 0 2px 8px;
     }
     .user-bubble {
-        background-color: #FFF9C4;
-        border-bottom-right-radius: 4px;
-        float: right;
+        background: var(--color-user-bubble);
+        border-radius: 18px 4px 18px 18px;
+        padding: 13px 16px;
+        max-width: 78%;
+        min-width: 60px;
+        margin: 2px 8px 2px 0;
     }
 
-    /* ── 모바일 (≤768px) ── */
-    @media (max-width: 768px) {
-        .mom-bubble {
-            min-width: 180px;
-            max-width: 300px;
-            padding: 12px 14px;
-        }
-        .user-bubble {
-            min-width: 120px;
-            max-width: 300px;
-            padding: 12px 14px;
-        }
-    }
-
-    /* ── PC (≥769px) ── */
-    @media (min-width: 769px) {
-        .mom-bubble {
-            min-width: 200px;
-            max-width: 380px;
-            padding: 14px 18px;
-        }
-        .user-bubble {
-            min-width: 120px;
-            max-width: 340px;
-            padding: 14px 18px;
-        }
-    }
+    /* ── 채팅 컨테이너 ── */
     .chat-container-left {
         display: flex;
         justify-content: flex-start;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
         clear: both;
     }
     .chat-container-right {
         display: flex;
         justify-content: flex-end;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
         clear: both;
     }
+
+    /* ── 발신자 레이블 ── */
     .mom-label {
-        font-size: 13px;
-        color: #666;
-        margin-bottom: 2px;
+        font-size: 12px;
+        color: var(--color-primary);
+        font-weight: 500;
+        margin-bottom: 4px;
+        margin-left: 8px;
     }
 
-    /* 웰컴 타이틀 스타일 */
-    .welcome-title {
-        font-size: 2rem;
-        font-weight: 700;
-        text-align: center;
-        margin-top: 20vh;
-        color: #2E7D32;
-    }
-    .welcome-subtitle {
-        font-size: 1.1rem;
-        text-align: center;
-        color: #666;
-        margin-top: 8px;
-        margin-bottom: 2rem;
-    }
-
-    /* 채팅 입력창 고정 */
+    /* ── 채팅 입력창 ── */
     .stChatInput {
         position: fixed !important;
         bottom: 0 !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
-        width: 390px !important;
+        width: 480px !important;
         z-index: 999 !important;
+        background: var(--color-surface) !important;
+        border-top: 1px solid var(--color-border) !important;
+        padding: 8px 16px 12px !important;
+    }
+    .stChatInput > div {
+        border-radius: 24px !important;
+        border: 1.5px solid var(--color-border) !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06) !important;
+        transition: border-color 0.2s !important;
+    }
+    .stChatInput > div:focus-within {
+        border-color: var(--color-primary) !important;
     }
 
-    /* 동그란 플로팅 버튼 좌우 분리 */
+    /* ── 플로팅 버튼 ── */
     .btn-calendar {
         position: fixed;
         top: 16px;
-        right: calc(50% - 195px + 16px);
+        right: calc(50% - 240px + 16px);
         z-index: 1000;
     }
     .btn-photo {
         position: fixed;
         bottom: 80px;
-        right: calc(50% - 195px + 16px);
+        right: calc(50% - 240px + 16px);
         z-index: 1000;
     }
     .round-btn {
         width: 52px;
         height: 52px;
         border-radius: 50%;
-        border: 1px solid #ddd;
-        background: white;
+        border: 1.5px solid var(--color-border);
+        background: var(--color-surface);
         font-size: 22px;
         cursor: pointer;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
         display: flex;
         align-items: center;
         justify-content: center;
         text-decoration: none;
         color: inherit;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     .round-btn:hover {
-        background: #f0f0f0;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.16);
+    }
+
+    /* ── 사이드바 ── */
+    [data-testid="stSidebar"] {
+        background: #F7F9F7 !important;
+        border-right: 1px solid var(--color-border) !important;
+    }
+
+    /* ── 버튼 ── */
+    .stButton > button {
+        background: var(--color-primary) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        font-family: 'Noto Sans KR', sans-serif !important;
+        transition: background 0.2s, transform 0.1s !important;
+    }
+    .stButton > button:hover {
+        background: var(--color-primary-light) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* 캘린더 day 버튼: 기본 스타일 오버라이드 */
+    [data-testid="stHorizontalBlock"] .stButton > button {
+        background: var(--color-surface) !important;
+        color: var(--color-text) !important;
+        border: 1px solid var(--color-border) !important;
+        border-radius: 8px !important;
+        padding: 4px 2px !important;
+        font-size: 13px !important;
+        min-height: 36px !important;
+        width: 100% !important;
+        transform: none !important;
+    }
+    [data-testid="stHorizontalBlock"] .stButton > button:hover {
+        background: var(--color-mom-bubble) !important;
+        transform: none !important;
+    }
+
+    /* ── 모바일 반응형 (≤768px) ── */
+    @media (max-width: 768px) {
+        .main .block-container {
+            max-width: 100% !important;
+            padding: 0 12px 80px !important;
+        }
+        .mom-bubble { max-width: 82%; }
+        .user-bubble { max-width: 78%; }
+        .stChatInput {
+            width: 100% !important;
+            border-radius: 0 !important;
+        }
+        .btn-calendar { right: 16px; }
+        .btn-photo { right: 16px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -252,22 +306,22 @@ def render_chat_message(role, content, animate=False, searched=False):
         split_messages = [msg.replace("\n", " ").strip() for msg in content.split("|||") if msg.strip()]
         for i, clean_msg in enumerate(split_messages):
             if animate and i > 0:
-                time.sleep(random.uniform(1.0, 2.0))  # 1~2초 랜덤 딜레이
-            bubble_style = (
-                ' style="border: 2px solid #4CAF50; border-radius: 12px; padding: 12px; margin: 4px 0;"'
-                if searched else ""
-            )
+                time.sleep(random.uniform(1.0, 2.0))
+            if searched:
+                bubble_extra = ' style="border: 1.5px solid var(--color-primary); background: #F0F9F3;"'
+            else:
+                bubble_extra = ""
             st.markdown(
                 f'<div class="chat-container-left">'
                 f'<div><div class="mom-label">🤱 엄마품</div>'
-                f'<div class="mom-bubble"{bubble_style}>{clean_msg}</div></div></div>',
+                f'<div class="mom-bubble"{bubble_extra}>{clean_msg}</div></div></div>',
                 unsafe_allow_html=True,
             )
     else:
         st.markdown(
             f'<div class="chat-container-right">'
             f'<div class="user-bubble">{content}</div></div>',
-            get_greeting, unsafe_allow_html=True,
+            unsafe_allow_html=True,
         )
 
 
@@ -319,8 +373,13 @@ def main():
 
     # ── 타이틀: 메시지가 없을 때만 표시 ──
     if not st.session_state.messages:
-        st.markdown('<div class="welcome-title">어디가 아프니?</div>', unsafe_allow_html=True)
-        st.markdown('<div class="welcome-subtitle">엄마 품으로 오렴 💚</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align:center; padding:28px 0 16px; border-bottom:1px solid var(--color-border); margin-bottom:20px;">
+            <div style="font-family:'Noto Serif KR',serif; font-size:22px; font-weight:600;
+                        color:var(--color-text); letter-spacing:-0.3px;">어디가 아프니?</div>
+            <div style="font-size:13px; color:var(--color-text-muted); margin-top:4px;">엄마처럼 챙겨주는 건강 친구</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # ── 첫 인사 ──
     if not st.session_state.greeted and not st.session_state.messages:
