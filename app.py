@@ -2,6 +2,7 @@
 import os
 import time
 import random
+import base64
 import streamlit as st
 from datetime import datetime, date
 from dotenv import load_dotenv
@@ -107,7 +108,7 @@ st.markdown("""
         border-radius: 4px 18px 18px 18px;
         padding: 13px 16px;
         max-width: 78%;
-        min-width: 60px;
+        min-width: 200px;
         margin: 2px 0 2px 8px;
     }
     .user-bubble {
@@ -115,7 +116,7 @@ st.markdown("""
         border-radius: 18px 4px 18px 18px;
         padding: 13px 16px;
         max-width: 78%;
-        min-width: 60px;
+        min-width: 200px;
         margin: 2px 8px 2px 0;
     }
 
@@ -372,14 +373,34 @@ def main():
     render_sidebar()
 
     # ── 타이틀: 메시지가 없을 때만 표시 ──
+    def get_image_base64(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+
+    # 2. 다운로드 받으신 이미지의 실제 경로를 적어주세요. (예: "assets/mom_icon.jpg")
+    # 파이참 프로젝트 폴더 안에 이미지를 넣고 그 이름을 적어주시면 됩니다.
+    image_path = "mom.png"
+    img_base64 = get_image_base64(image_path)
+
+    # 3. HTML 렌더링 (f-string 사용)
     if not st.session_state.messages:
-        st.markdown("""
-        <div style="text-align:center; padding:28px 0 16px; border-bottom:1px solid var(--color-border); margin-bottom:20px;">
-            <div style="font-family:'Noto Serif KR',serif; font-size:22px; font-weight:600;
-                        color:var(--color-text); letter-spacing:-0.3px;">어디가 아프니?</div>
-            <div style="font-size:13px; color:var(--color-text-muted); margin-top:4px;">엄마처럼 챙겨주는 건강 친구</div>
-        </div>
-        """, unsafe_allow_html=True)
+        if img_base64:
+            # 이미지가 있을 때 (HTML 태그 안의 줄바꿈을 모두 제거하여 한 줄로 연결했습니다)
+            st.markdown(f"""
+            <div style="text-align:center; padding:28px 0 16px; border-bottom:1px solid var(--color-border); margin-bottom:20px;">
+                <img src="data:image/jpeg;base64,{img_base64}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <div style="font-family:'Noto Serif KR',serif; font-size:22px; font-weight:600; color:var(--color-text); letter-spacing:-0.3px;">어디가 아프니?</div>
+                <div style="font-size:13px; color:var(--color-text-muted); margin-top:4px;">엄마처럼 챙겨주는 건강 챗봇</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            # 이미지가 없을 때
+            st.markdown("""
+            <div style="text-align:center; padding:28px 0 16px; border-bottom:1px solid var(--color-border); margin-bottom:20px;">
+                <div style="font-family:'Noto Serif KR',serif; font-size:22px; font-weight:600; color:var(--color-text); letter-spacing:-0.3px;">어디가 아프니?</div>
+                <div style="font-size:13px; color:var(--color-text-muted); margin-top:4px;">엄마처럼 챙겨주는 건강 챗봇</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # ── 첫 인사 ──
     if not st.session_state.greeted and not st.session_state.messages:
