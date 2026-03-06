@@ -15,7 +15,27 @@ try:
 except Exception:
     pass
 
-from chatbot import MomChatbot, detect_medical_add_intent, extract_disease_name
+from chatbot import MomChatbot
+
+
+def detect_medical_add_intent(user_message: str):
+    explicit = ["병력에 추가", "기록해줘", "저장해줘", "추가해줘"]
+    if any(k in user_message for k in explicit):
+        return user_message
+    return None
+
+
+def extract_disease_name(user_message: str, llm) -> str:
+    from langchain_core.messages import HumanMessage
+    prompt = (
+        "다음 문장에서 질병명 또는 증상명만 추출해줘. "
+        "한 단어 또는 짧은 명사로만 답해. 없으면 '없음'이라고 답해.\n"
+        f"문장: {user_message}"
+    )
+    try:
+        return llm.invoke([HumanMessage(content=prompt)]).content.strip()
+    except Exception:
+        return "없음"
 from vision import analyze_medicine_image
 from data_manager import save_chat_history, get_chat_history, load_medical_history, save_medical_history
 from components.sidebar import render_sidebar
@@ -52,26 +72,54 @@ st.markdown("""
         padding-bottom: 160px !important;
     }
 
-    .mom-bubble {
-        background-color: #E8F5E9;
-        border-radius: 15px 15px 15px 0px;
-        padding: 12px 16px;
-        margin: 8px 0;
-        max-width: 85%;
+    /* ── 말풍선 공통 ── */
+    .mom-bubble, .user-bubble {
         display: inline-block;
+        border-radius: 18px;
+        margin: 8px 0;
         font-size: 15px;
         line-height: 1.5;
+        text-align: left;
+        word-break: keep-all;
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+    }
+    .mom-bubble {
+        background-color: #E8F5E9;
+        border-bottom-left-radius: 4px;
     }
     .user-bubble {
         background-color: #FFF9C4;
-        border-radius: 15px 15px 0px 15px;
-        padding: 12px 16px;
-        margin: 8px 0;
-        max-width: 85%;
-        display: inline-block;
+        border-bottom-right-radius: 4px;
         float: right;
-        font-size: 15px;
-        line-height: 1.5;
+    }
+
+    /* ── 모바일 (≤768px) ── */
+    @media (max-width: 768px) {
+        .mom-bubble {
+            min-width: 180px;
+            max-width: 300px;
+            padding: 12px 14px;
+        }
+        .user-bubble {
+            min-width: 120px;
+            max-width: 300px;
+            padding: 12px 14px;
+        }
+    }
+
+    /* ── PC (≥769px) ── */
+    @media (min-width: 769px) {
+        .mom-bubble {
+            min-width: 200px;
+            max-width: 380px;
+            padding: 14px 18px;
+        }
+        .user-bubble {
+            min-width: 120px;
+            max-width: 340px;
+            padding: 14px 18px;
+        }
     }
     .chat-container-left {
         display: flex;
@@ -156,11 +204,11 @@ st.markdown("""
 def get_greeting():
     hour = datetime.now().hour
     if 5 <= hour < 12:
-        return "좋은 아침이야! \n오늘은 어디 불편한 데 없어?"
+        return "좋은 아침이야!\n오늘은 어디 불편한 데 없어?"
     elif 12 <= hour < 18:
-        return "점심은 잘 먹었어? \n오늘 몸 상태는 어때?"
+        return "점심은 잘 먹었어?\n오늘 몸 상태는 어때?"
     else:
-        return "오늘 하루도 수고했어~ \n어디 아픈 데는 없지?"
+        return "오늘 하루도 수고했어~\n어디 아픈 데는 없지?"
 
 
 def init_session():
