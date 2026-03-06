@@ -3,6 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?logo=streamlit&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-0.x-1C3C3C?logo=langchain&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.x-1C3C3C?logo=langchain&logoColor=white)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?logo=openai&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -76,10 +77,12 @@
 
 | 우선순위 | 기능 | 설명 | 상태 |
 |----------|------|------|------|
-| P0 | 🤱 엄마 페르소나 챗봇 | LangChain 기반 위로/공감/건강 조언 | ✅ |
+| P0 | 🤱 엄마 페르소나 챗봇 | LangGraph Plan→Execute→Refine 에이전트 + 웹 검색 | ✅ |
 | P0 | 🏥 병력 등록 및 기억 | 사이드바 등록 + 시스템 프롬프트 자동 반영 | ✅ |
-| P1 | 📅 건강일기 캘린더 | 날짜별 7개 카테고리 기록 및 조회 | ✅ |
+| P1 | 📅 건강일기 캘린더 | 날짜별 7개 카테고리 기록·조회, 4-state 시각화 | ✅ |
 | P1 | 📷 약봉투 사진 분석 | 이미지 업로드 후 약 정보/상처 분석 안내 | ✅ |
+| P1 | 🧠 대화 요약 메모리 | 최근 6개 히스토리 + 자동 누적 요약으로 토큰 절약 | ✅ |
+| P1 | 🔍 병력 자동 감지 | 대화 중 병력 추가 의도 감지 → LLM 추출 → 확인 UI | ✅ |
 | P2 | 💊 증상 기반 병원 추천 | 진료과 안내 + 네이버 지도 링크 | ✅ |
 | P3 | ⏰ 약 복용 알림 | UI만 구현, 실제 알림 미작동 | 🚧 |
 
@@ -87,7 +90,11 @@
 
 #### 기능 1: 엄마 페르소나 챗봇 (P0)
 
-- **LangChain ChatOpenAI + SystemMessage**로 엄마 페르소나 부여
+- **LangGraph 기반 Plan→Execute→Refine 에이전트** 구조
+  - `plan` 노드: 웹 검색 필요 여부 판단
+  - `execute` 노드: 검색 결과 또는 직접 지식으로 답변 생성
+  - `refine` 노드: 공감 품질 평가 후 미흡 시 재시도 (최대 2회)
+  - 검색이 필요 없는 순수 공감 대화는 `execute_direct`로 바로 라우팅
 - 당일 대화는 전체 유지, 날짜가 바뀌면 `chat_YYYY-MM-DD.json`에 자동 저장
 - 등록된 병력 + 오늘의 건강일기를 시스템 프롬프트에 자동 포함
 - 증상 키워드 감지 시 진료과 매핑 및 병원 방문 안내
@@ -100,6 +107,19 @@
 - `data/medical_history.json`으로 로컬 저장
 - 등록된 병력은 SystemMessage 프롬프트에 자동 반영
 - 항목별 개별 삭제 가능
+
+#### 기능 1-1: 대화 요약 메모리 (P1)
+
+- 에이전트에 전달하는 히스토리를 **최근 6개 메시지**로 제한 (토큰 절약)
+- 6개 메시지마다 `summarize_history()`로 자동 요약 생성 (200자 이내)
+- `update_summary()`로 이전 요약과 합산 누적 → `plan_node` 시스템 프롬프트에 주입
+- 대화가 길어져도 맥락 손실 없이 요약 기반 연속성 유지
+
+#### 기능 1-2: 대화 중 병력 자동 감지 (P1)
+
+- "병력에 추가해줘", "기록해줘", "저장해줘" 등 키워드 감지
+- LLM이 메시지에서 질환명을 자동 추출
+- 확인 UI (`추가할게` / `괜찮아` 버튼)로 사용자 승인 후 `medical_history.json`에 저장
 
 #### 기능 3: 건강일기 캘린더 (P1)
 
@@ -116,7 +136,11 @@
 | 메모 | 자유 텍스트 |
 
 - 📅 플로팅 버튼 클릭 시 캘린더 다이얼로그 표시
-- 기록이 있는 날짜는 📝 표시 및 초록색 하이라이트
+- 버튼 그리드 방식(7열)으로 날짜 선택, 4-state 시각화:
+  - 오늘: 초록 테두리
+  - 선택: 흰 배경 + 초록 테두리
+  - 기록 있음: 초록 배경 + 흰 글씨
+  - 선택 + 기록: 진한 초록 배경
 - 조회/편집/삭제 모드 지원
 
 #### 기능 4: 약봉투 사진 분석 (P1)
@@ -181,11 +205,13 @@
 
 | 항목 | 값 |
 |------|-----|
-| 레이아웃 | 모바일 세로 390px 중앙 정렬 |
-| 배경 | 아이보리 화이트 (`#FFFFF0`) |
-| 엄마 말풍선 | 연한 초록 (`#E8F5E9`) + 좌측 정렬 |
-| 내 말풍선 | 따뜻한 노랑 (`#FFF9C4`) + 우측 정렬 |
-| 액센트 컬러 | 연두 (`#8BC34A`) — 병원 링크 버튼, 웰컴 타이틀 |
+| 레이아웃 | 모바일 세로 390px 중앙 정렬, max-width 480px |
+| 배경 | 웜 화이트 (`#FAFAF7`) |
+| 엄마 말풍선 | 세이지 화이트 (`#F5FAF6`) + 테두리 + 좌측 정렬 |
+| 내 말풍선 | 아이보리 (`#FFF9EE`) + 우측 정렬 |
+| 액센트 컬러 | 세이지 그린 (`#5C9E6E`) — 병원 버튼, 캘린더 하이라이트, 타이틀 |
+| 타이포그래피 | Noto Serif KR (제목/레이블) + Noto Sans KR (본문) |
+| CSS 방식 | CSS 변수 시스템 (`:root` 팔레트 10종) |
 | 전체 톤 | 병원처럼 차갑지 않고 집처럼 따뜻한 느낌 |
 
 ---
@@ -196,6 +222,7 @@
 |------|------|-----------|
 | 프레임워크 | Streamlit | 빠른 프로토타이핑, Python 친화적 |
 | AI 프레임워크 | LangChain | 메시지 체인 구조, 프롬프트 관리 용이 |
+| 에이전트 그래프 | LangGraph | Plan/Execute/Refine 노드 그래프, 조건부 엣지 라우팅 |
 | 일반 대화 모델 | GPT-4o-mini | 비용 효율적, 일반 대화에 충분 |
 | 이미지 분석 모델 | GPT-4o | Vision 기능은 더 강력한 모델 필요 |
 | 데이터 저장 | JSON 파일 | 간단한 로컬 저장, 별도 DB 불필요 |
@@ -207,16 +234,24 @@
 
 ```
 Langchin/
-├── app.py                    # Streamlit 메인 진입점, UI 렌더링
-├── chatbot.py                # MomChatbot 클래스, 증상→진료과 매핑, LangChain 체인
+├── app.py                    # Streamlit 메인 진입점, UI 렌더링, 대화 요약 관리
+├── chatbot.py                # MomChatbot 클래스, 증상→진료과 매핑, 병력 감지
 ├── prompts.py                # 시스템 프롬프트 생성 (페르소나 + 병력 주입)
 ├── data_manager.py           # JSON 파일 CRUD (병력, 건강일기, 채팅)
 ├── vision.py                 # OpenAI Vision API 이미지 분석
+├── agent/
+│   ├── __main__.py           # 에이전트 단독 실행 진입점
+│   ├── graph.py              # LangGraph StateGraph 빌드 (Plan→Execute→Refine)
+│   ├── nodes.py              # plan_node / execute_node / refine_node 구현
+│   ├── runner.py             # run_agent(), run_report(), summarize_history(), update_summary()
+│   ├── state.py              # AgentState TypedDict 정의
+│   ├── llm.py                # ChatOpenAI 인스턴스 팩토리
+│   └── prompts.yaml          # 노드별 시스템 프롬프트
 ├── components/
 │   ├── __init__.py           # 모듈 초기화
-│   ├── sidebar.py            # 병력 관리 + 복약 알림 + 전체 초기화 사이드바
+│   ├── sidebar.py            # 병력 관리 + 복약 알림 + 리포트 + 초기화 사이드바
 │   ├── alarm_ui.py           # 복약 알림 UI (WIP)
-│   └── calendar_view.py      # 건강일기 캘린더 다이얼로그
+│   └── calendar_view.py      # 건강일기 캘린더 다이얼로그 (버튼 그리드 + 4-state)
 ├── data/                     # 로컬 데이터 저장소 (자동 생성, gitignore)
 │   ├── medical_history.json  # 병력 데이터
 │   ├── health_diary.json     # 건강일기 (날짜별)
@@ -243,6 +278,7 @@ Langchin/
 | Constraint Setting | SystemMessage | 진단 금지, 3문장 이내, 매크로 답변 금지 |
 | Context Injection | SystemMessage (동적) | 등록된 병력 + 오늘의 건강일기 자동 삽입 |
 | Chain of Thought | 응답 구조 | 감정 공감 → 상황 위로 → 가벼운 조언/질문 |
+| Rolling Summary | runner.py | 6개 메시지마다 자동 요약 (200자), plan_node에 누적 주입 |
 
 ### 응답 구조 (3단계)
 
@@ -357,7 +393,7 @@ OPENAI_API_KEY = "sk-..."
 | 복약 알림 미작동 | UI만 존재, 실제 푸시 알림 없음 (Streamlit 백그라운드 실행 불가) |
 | 단일 사용자 | 로그인/인증 없음, 데이터는 로컬 JSON 저장 |
 | 개인정보 보안 | 병력 데이터가 암호화 없이 로컬 저장 |
-| 할루시네이션 | 의학 정보 오류 가능성 존재 |
+| 할루시네이션 | LangGraph 웹 검색 후 답변 생성으로 감소했으나, 검색이 불필요한 일반 대화에서는 여전히 오류 가능성 존재 |
 | API 비용 | OpenAI API 사용량에 따라 비용 발생 |
 
 ### 향후 개선 방향
