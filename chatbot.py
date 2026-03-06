@@ -18,7 +18,8 @@ SYMPTOM_DEPARTMENT_MAP = {
     "치아": "치과", "잇몸": "치과", "이빨": "치과",
     "가슴이": "내과", "심장": "내과", "숨이": "내과", "호흡": "내과",
     "우울": "정신건강의학과", "불안": "정신건강의학과", "스트레스": "정신건강의학과", "잠을": "정신건강의학과", "불면": "정신건강의학과",
-    "생리": "산부인과", "질염": "산부인과", "자궁": "산부인과", "방광염": "비뇨의학과", "잔뇨": "비뇨의학과"
+    "생리": "산부인과", "질염": "산부인과", "자궁": "산부인과", "난소": "산부인과", "다낭성": "산부인과",
+    "방광염": "비뇨의학과", "잔뇨": "비뇨의학과"
 }
 
 
@@ -46,9 +47,11 @@ def find_department(user_input):
     return None
 
 
-def find_department_from_history(chat_history):
-    """대화 이력에서 가장 최근 증상 키워드의 진료과를 찾는다."""
-    for msg in reversed(chat_history):
+def find_department_from_history(chat_history, limit=5):
+    """최근 대화 이력(최대 limit개 메시지) 중 user 발화에서 진료과를 찾는다.
+    현재 메시지보다 우선순위가 낮으므로, 현재 메시지에서 이미 찾은 경우 호출하지 않는다."""
+    recent = chat_history[-limit:] if len(chat_history) > limit else chat_history
+    for msg in reversed(recent):
         if msg["role"] == "user":
             dept = find_department(msg["content"])
             if dept:
