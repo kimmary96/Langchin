@@ -35,8 +35,11 @@ def plan_node(state: AgentState) -> dict:
             f"병력: {state['medical_history'] or '없음'}\n"
             f"오늘 일기: {state['today_diary'] or '없음'}"
         )
+        summary_text = ""
+        if state.get("conversation_summary"):
+            summary_text = f"\n[오늘 대화 요약]\n{state['conversation_summary']}"
         messages = [
-            SystemMessage(content=prompts["plan"]),
+            SystemMessage(content=prompts["plan"] + summary_text),
             HumanMessage(content=user_context),
         ]
         plan_text = llm.invoke(messages).content

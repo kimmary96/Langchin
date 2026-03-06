@@ -166,7 +166,7 @@ class MomChatbot:
 
     # ── 공개 메서드 ──────────────────────────────────────────────────────────
 
-    def get_response(self, user_input: str, chat_history: list) -> dict:
+    def get_response(self, user_input: str, chat_history: list, conversation_summary: str = "") -> dict:
         """
         Returns:
             {"response": str, "agent_steps": list}
@@ -184,6 +184,7 @@ class MomChatbot:
                 user_input, medical_history_list, diary_entry,
                 hospital_requested, department,
                 chat_history,
+                conversation_summary=conversation_summary,
             )
         return self._response_via_legacy(
             user_input, chat_history, medical_history_list, diary_entry,
@@ -200,6 +201,7 @@ class MomChatbot:
         hospital_requested: bool,
         department: str,
         chat_history: list,
+        conversation_summary: str = "",
     ) -> dict:
         from agent.runner import run_agent
 
@@ -224,6 +226,8 @@ class MomChatbot:
                 user_message=message_with_context,
                 medical_history=medical_history_str,
                 today_diary=today_diary_str,
+                recent_history=chat_history[-6:],
+                conversation_summary=conversation_summary,
             )
             raw_response = agent_result.get("response", "")
             agent_steps = agent_result.get("agent_steps", [])

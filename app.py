@@ -38,6 +38,7 @@ def extract_disease_name(user_message: str, llm) -> str:
         return "없음"
 from vision import analyze_medicine_image
 from data_manager import save_chat_history, get_chat_history, load_medical_history, save_medical_history
+from agent.runner import summarize_history, update_summary
 from components.sidebar import render_sidebar
 from components.calendar_view import show_calendar_dialog
 
@@ -204,11 +205,11 @@ st.markdown("""
 def get_greeting():
     hour = datetime.now().hour
     if 5 <= hour < 12:
-        return "좋은 아침이야!\n오늘은 어디 불편한 데 없어?"
+        return "좋은 아침이야!<br>오늘 컨디션은 어때?"
     elif 12 <= hour < 18:
-        return "점심은 잘 먹었어?\n오늘 몸 상태는 어때?"
+        return "점심은 잘 먹었어?<br>오늘 몸 상태는 어때?"
     else:
-        return "오늘 하루도 수고했어~\n어디 아픈 데는 없지?"
+        return "오늘 하루도 수고했어~<br>어디 아픈 데는 없지?"
 
 
 def init_session():
@@ -230,6 +231,8 @@ def init_session():
         st.session_state.agent_steps = []
     if "pending_disease" not in st.session_state:
         st.session_state.pending_disease = None
+    if "conversation_summary" not in st.session_state:
+        st.session_state.conversation_summary = ""
 
 
 def check_date_change():
@@ -241,6 +244,7 @@ def check_date_change():
         st.session_state.messages = old_history if old_history else []
         st.session_state.current_date = today
         st.session_state.greeted = False
+        st.session_state.conversation_summary = ""
 
 
 def render_chat_message(role, content, animate=False, searched=False):
@@ -263,7 +267,7 @@ def render_chat_message(role, content, animate=False, searched=False):
         st.markdown(
             f'<div class="chat-container-right">'
             f'<div class="user-bubble">{content}</div></div>',
-            unsafe_allow_html=True,
+            get_greeting, unsafe_allow_html=True,
         )
 
 
@@ -380,7 +384,9 @@ def main():
 
         with st.spinner("타자치는 중..."):
             result = st.session_state.chatbot.get_response(
-                user_input, st.session_state.messages[:-1]
+                user_input,
+                st.session_state.messages[-7:-1],  # 최근 6개 히스토리
+                conversation_summary=st.session_state.conversation_summary,
             )
 
         response = result["response"]
@@ -390,6 +396,16 @@ def main():
         save_chat_history(st.session_state.current_date, st.session_state.messages)
         st.session_state.animate_last = True
         st.session_state.searched_last = any("Tavily 검색 실행됨" in s for s in agent_steps)
+
+        # 6개 대화마다 자동 요약
+        if len(st.session_state.messages) % 6 == 0:
+            with st.spinner("대화 내용 정리 중..."):
+                new_summary = summarize_history(st.session_state.messages)
+                st.session_state.conversation_summary = update_summary(
+                    st.session_state.conversation_summary,
+                    new_summary,
+                )
+            print(f"[요약 업데이트] {st.session_state.conversation_summary}")
 
         # 병력 추가 의도 감지
         if detect_medical_add_intent(user_input):

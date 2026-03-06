@@ -14,3 +14,5 @@ class AgentState(TypedDict):
     refinement_feedback: str # Refine 개선 피드백
     retry_count: int         # 재시도 횟수
     agent_steps: list        # 처리 단계 로그 (Streamlit 사이드바 표시용)
+    recent_history: list     # 최근 6개 대화 히스토리
+    conversation_summary: str  # 이전 대화 요약 누적본
