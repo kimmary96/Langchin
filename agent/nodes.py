@@ -114,6 +114,16 @@ def execute_node(state: AgentState) -> dict:
     )
     human_content = f"사용자 메시지: {state['user_message']}\n\n{task_prompt}"
 
+    # 정보 요청 / 약 관련 질문이면 공감 생략 지시 추가
+    plan_text = state.get("plan", "")
+    info_request_keywords = ["정보 요청", "약 관련 질문", "약 이름", "의학 정보", "약품", "검색 키워드"]
+    if any(kw in plan_text for kw in info_request_keywords) or state.get("search_needed"):
+        human_content += (
+            "\n\n[추가 지시] 이건 정보 요청이야. 공감 멘트, 쉬라는 제안, 위로 없이 "
+            "검색 결과를 바탕으로 정보만 자연스럽게 전달해줘. "
+            "말투는 엄마처럼 친근하게, 내용은 검색 결과 그대로."
+        )
+
     messages = [
         SystemMessage(content=base_system),
         HumanMessage(content=human_content),

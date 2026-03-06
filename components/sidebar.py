@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 from data_manager import load_medical_history, save_medical_history, reset_all_data
 from components.alarm_ui import render_alarm_ui
+from agent.runner import run_report
 
 
 def render_sidebar():
@@ -66,6 +67,28 @@ def render_sidebar():
 
         st.divider()
         render_alarm_ui()
+
+        st.divider()
+        st.subheader("📋 오늘의 건강 리포트")
+
+        messages = st.session_state.get("messages", [])
+        user_turn_count = sum(1 for m in messages if m["role"] == "user")
+
+        if st.button("리포트 만들기", use_container_width=True):
+            if user_turn_count < 5:
+                st.info("아직 대화가 충분하지 않아. 조금 더 이야기하고 다시 눌러줘!")
+            else:
+                with st.spinner("리포트 작성 중..."):
+                    report = run_report(messages)
+                st.session_state.today_report = report
+                st.rerun()
+
+        if st.session_state.get("today_report"):
+            r = st.session_state.today_report
+            st.markdown(f"**증상 요약:** {r.get('symptoms', '')}")
+            st.markdown(f"**컨디션 점수:** {'⭐' * r.get('condition_score', 3)} ({r.get('condition_score', 3)}/5)")
+            st.markdown(f"💬 {r.get('moms_comment', '')}")
+            st.markdown(f"**권고:** {r.get('recommendation', '')}")
 
         st.divider()
         st.subheader("⚠️ 데모 초기화")

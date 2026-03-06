@@ -15,9 +15,9 @@ try:
 except Exception:
     pass
 
-from chatbot import MomChatbot
+from chatbot import MomChatbot, detect_medical_add_intent, extract_disease_name
 from vision import analyze_medicine_image
-from data_manager import save_chat_history, get_chat_history
+from data_manager import save_chat_history, get_chat_history, load_medical_history, save_medical_history
 from components.sidebar import render_sidebar
 from components.calendar_view import show_calendar_dialog
 
@@ -180,6 +180,8 @@ def init_session():
         st.session_state.last_uploaded = ""
     if "agent_steps" not in st.session_state:
         st.session_state.agent_steps = []
+    if "pending_disease" not in st.session_state:
+        st.session_state.pending_disease = None
 
 
 def check_date_change():
@@ -195,7 +197,7 @@ def check_date_change():
 
 def render_chat_message(role, content, animate=False, searched=False):
     if role == "assistant":
-        split_messages = [msg.strip() for msg in content.split("|||") if msg.strip()]
+        split_messages = [msg.replace("\n", " ").strip() for msg in content.split("|||") if msg.strip()]
         for i, clean_msg in enumerate(split_messages):
             if animate and i > 0:
                 time.sleep(random.uniform(1.0, 2.0))  # 1~2초 랜덤 딜레이
@@ -289,6 +291,32 @@ def main():
     if searched_last:
         st.session_state.searched_last = False
 
+    # ── 병력 추가 성공 메시지 ──
+    if st.session_state.get("disease_added_msg"):
+        st.success(st.session_state.pop("disease_added_msg"))
+
+    # ── 병력 추가 확인 UI ──
+    if st.session_state.get("pending_disease"):
+        pending_disease = st.session_state["pending_disease"]
+        st.info(f"'{pending_disease}' 병력에 추가할까? 추가하면 앞으로 대화에 반영할게.")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("추가할게", key="add_disease_btn", use_container_width=True):
+                history = load_medical_history()
+                history.append({
+                    "disease": pending_disease,
+                    "date": date.today().isoformat(),
+                    "memo": "",
+                })
+                save_medical_history(history)
+                st.session_state.pending_disease = None
+                st.session_state["disease_added_msg"] = f"'{pending_disease}' 병력에 추가했어!"
+                st.rerun()
+        with col2:
+            if st.button("괜찮아", key="skip_disease_btn", use_container_width=True):
+                st.session_state.pending_disease = None
+                st.rerun()
+
     # ── 하단 플로팅 버튼 ──
     st.markdown("""
     <a href="?action=calendar" target="_self" class="round-btn btn-calendar">📅</a>
@@ -297,6 +325,8 @@ def main():
 
     # ── 채팅 입력 ──
     if user_input := st.chat_input("어디가 아프니? 말해봐~"):
+        if not user_input.strip():
+            st.stop()
         st.session_state.messages.append({"role": "user", "content": user_input})
         render_chat_message("user", user_input)
 
@@ -312,6 +342,17 @@ def main():
         save_chat_history(st.session_state.current_date, st.session_state.messages)
         st.session_state.animate_last = True
         st.session_state.searched_last = any("Tavily 검색 실행됨" in s for s in agent_steps)
+
+        # 병력 추가 의도 감지
+        if detect_medical_add_intent(user_input):
+            with st.spinner("병명 확인 중..."):
+                disease_name = extract_disease_name(user_input, st.session_state.chatbot.llm)
+            if disease_name and disease_name != "없음":
+                existing = load_medical_history()
+                existing_diseases = [item.get("disease", "") for item in existing]
+                if disease_name not in existing_diseases:
+                    st.session_state.pending_disease = disease_name
+
         st.rerun()
 
 

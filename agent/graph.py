@@ -19,6 +19,13 @@ def after_plan(state: AgentState) -> str:
     return "execute_direct"
 
 
+def after_execute(state: AgentState) -> str:
+    """검색 기반 정보 요청은 refine 공감 기준이 부적합하므로 바로 종료."""
+    if state.get("search_needed"):
+        return END
+    return "refine"
+
+
 def build_graph():
     graph = StateGraph(AgentState)
 
@@ -33,7 +40,10 @@ def build_graph():
         "execute_direct": "execute_direct",
     })
     graph.add_edge("execute_direct", END)
-    graph.add_edge("execute", "refine")
+    graph.add_conditional_edges("execute", after_execute, {
+        END: END,
+        "refine": "refine",
+    })
     graph.add_conditional_edges(
         "refine",
         should_retry,

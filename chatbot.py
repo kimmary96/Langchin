@@ -19,7 +19,12 @@ SYMPTOM_DEPARTMENT_MAP = {
     "가슴이": "내과", "심장": "내과", "숨이": "내과", "호흡": "내과",
     "우울": "정신건강의학과", "불안": "정신건강의학과", "스트레스": "정신건강의학과", "잠을": "정신건강의학과", "불면": "정신건강의학과",
     "생리": "산부인과", "질염": "산부인과", "자궁": "산부인과", "난소": "산부인과", "다낭성": "산부인과",
-    "방광염": "비뇨의학과", "잔뇨": "비뇨의학과"
+    "방광염": "비뇨의학과", "잔뇨": "비뇨의학과",
+    # 진료과명 직접 언급 ("산부인과 병원 추천해줘" 등)
+    "산부인과": "산부인과", "피부과": "피부과", "정형외과": "정형외과",
+    "신경과": "신경과", "이비인후과": "이비인후과", "안과": "안과",
+    "치과": "치과", "내과": "내과", "가정의학과": "가정의학과",
+    "비뇨의학과": "비뇨의학과", "정신건강의학과": "정신건강의학과"
 }
 
 
@@ -34,6 +39,31 @@ HOSPITAL_REQUEST_KEYWORDS = [
     "링크", "내과", "외과", "정형외과", "이비인후과", "가까운 병원", "근처 병원",
     "피부과", "신경과", "추천해줘", "찾아줘", "추천좀", "추천", "어느 병원", "예약"
 ]
+
+
+def detect_medical_add_intent(user_message: str) -> str | None:
+    """
+    사용자 메시지에서 병력 추가 의도를 감지.
+    명시적 추가 요청이 있으면 메시지 반환, 없으면 None 반환.
+    """
+    explicit = ["병력에 추가", "기록해줘", "저장해줘", "추가해줘"]
+    if any(k in user_message for k in explicit):
+        return user_message
+    return None
+
+
+def extract_disease_name(user_message: str, llm) -> str:
+    """LLM을 사용해 메시지에서 질병명 또는 증상명 추출. 없으면 '없음' 반환."""
+    from langchain_core.messages import HumanMessage
+    prompt = (
+        "다음 문장에서 질병명 또는 증상명만 추출해줘. "
+        "한 단어 또는 짧은 명사로만 답해. 없으면 '없음'이라고 답해.\n"
+        f"문장: {user_message}"
+    )
+    try:
+        return llm.invoke([HumanMessage(content=prompt)]).content.strip()
+    except Exception:
+        return "없음"
 
 
 def is_hospital_request(user_input):
